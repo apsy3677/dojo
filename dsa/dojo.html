@@ -126,6 +126,26 @@ table.t th { font: 600 11px var(--f-body); letter-spacing: .05em; text-transform
 .opts .btn.wrong { border-color: var(--fail); color: var(--fail); }
 .opts .btn:disabled { opacity: 1; }
 .opts .btn:disabled:not(.right):not(.wrong) { color: var(--muted); }
+/* problem statements: the card's problem box, named problems in text (tap → sheet), practice list */
+.box.prob { border-left: 3px solid var(--accent); }
+.box.prob h4 { display: flex; justify-content: space-between; gap: 8px; }
+.box.prob h4 + p, .box.prob p { margin: 0 0 8px; }
+.box.prob .sec { margin-top: 10px; }
+.box.prob h4 a, .orig { font: 600 12px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--accent); }
+a.pref { color: inherit; text-decoration: underline dotted var(--accent); text-underline-offset: 3px; cursor: pointer; }
+.pop { position: fixed; inset: auto 0 0; z-index: 30; max-height: 75vh; overflow-y: auto; background: var(--panel); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgb(0 0 0 / .18); padding: 14px 0 calc(18px + env(safe-area-inset-bottom, 0px)); }
+.pop h3 { margin: 0 0 6px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.pitem { display: grid; gap: 4px; padding: 12px 14px; border-top: 1px solid var(--line); min-width: 0; }
+.pitem:first-child { border-top: 0; }
+.pitem .t { font-weight: 600; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.pitem .s { font-size: 13.5px; }
+.pitem .row { margin-top: 4px; }
+.btn.sm { padding: 5px 10px; font-size: 13px; }
+.rung .ask { display: block; margin-top: 4px; font-weight: 500; }
+.rung summary { cursor: pointer; }
+.ctxp { font-size: 14px; }
+.ctxp pre.ascii, .pop pre.ascii { white-space: pre-wrap; overflow-wrap: anywhere; }   /* one-line examples wrap; card examples keep columns */
+.ctxp p { margin: 0 0 6px; }
 @media (prefers-reduced-motion: no-preference) { .item, .btn { transition: background .15s, border-color .15s; } }
 .item:hover { background: var(--accent-soft); }
 </style>
@@ -136,6 +156,7 @@ table.t th { font: 600 11px var(--f-body); letter-spacing: .05em; text-transform
 </div></header>
 <main class="wrap" id="main"><p class="muted" style="margin-top:24px">Loading the cards…</p></main>
 <div class="panel" id="panel" hidden></div>
+<div class="pop" id="pop" role="dialog" aria-label="Problem statement" hidden></div>
 
 <script>
 // ---------- constants ----------
@@ -194,6 +215,48 @@ function weekStart() { const d = new Date(); const k = (d.getDay() + 6) % 7; d.s
 function fmtSecs(s) { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), r = s % 60; return `${m}:${String(r).padStart(2, '0')}`; }
 function codeHtml(src) { return esc(src).split('\n').map((l) => l.replace(/(\/\/.*)$/, '<span class="cm">$1</span>')).join('\n'); }
 function chip(status) { return `<span class="chip s-${status}">${STATUS_LABEL[status] || status}</span>`; }
+// problem names in running text → a tappable link that opens the statement (S.problems comes from src/problems.mjs)
+function rich(s) {
+  s = String(s ?? ''); if (!S.nameRe) return esc(s);
+  let out = '', last = 0;
+  for (const m of s.matchAll(S.nameRe)) {
+    const id = S.nameToId[m[0]] ?? S.nameToId[m[0].replace(/^LC\s?/, '#')];
+    out += esc(s.slice(last, m.index)) + (id ? `<a class="pref" href="#" data-act="prob" data-pid="${id}">${esc(m[0])}</a>` : esc(m[0]));
+    last = m.index + m[0].length;
+  }
+  return out + esc(s.slice(last));
+}
+function indexProblems(problems) {
+  S.problems = problems || {}; S.nameToId = {};
+  for (const [id, p] of Object.entries(S.problems)) { S.nameToId[p.name] = id; S.nameToId['#' + id] = id; for (const a of p.alias || []) S.nameToId[a] = id; }
+  const names = Object.keys(S.nameToId).filter((n) => n[0] !== '#').sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  S.nameRe = new RegExp(`(?<![A-Za-z0-9])(?:${names.join('|')}|LC\\s?\\d{1,4})(?![A-Za-z0-9])`, 'g');
+}
+// "269 Alien Dictionary" / "Alien Dictionary" → registered problem, or null
+function findProblem(text) {
+  const m = /^\s*(\d{1,4})\b/.exec(text || ''); if (m && S.problems[m[1]]) return m[1];
+  const t = String(text || '').trim().toLowerCase(); if (!t) return null;
+  const n = Object.keys(S.nameToId).filter((k) => k[0] !== '#').sort((a, b) => b.length - a.length).find((k) => t.includes(k.toLowerCase()));
+  return n ? S.nameToId[n] : null;
+}
+function lcLink(id, label) { const p = S.problems[id]; return p ? `<a class="orig" href="${p.url}" target="_blank" rel="noopener">${label || `LeetCode ${id}`}${p.prem ? ' (premium)' : ''} ↗</a>` : ''; }
+function statementHtml(id, open) {
+  const p = S.problems[id]; if (!p) return '';
+  return `<div class="ctxp"><p><b>${id}. ${esc(p.name)}</b> <span class="muted small">${esc(p.d)}</span></p><p>${esc(p.s)}</p><pre class="ascii">${esc(p.ex)}</pre><p class="small" style="margin-top:6px">${lcLink(id, 'Original on LeetCode')}</p></div>`;
+}
+function cardProblemHtml(c, h = 'The problem') {
+  const p = c.problem; if (!p) return '';
+  return `<div class="box prob"><h4><span>${h}</span>${p.id != null ? lcLink(p.id) : ''}</h4><p>${rich(p.statement)}</p>
+    ${p.constraints?.length ? `<ul class="small">${p.constraints.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+    <div class="sec"><h4>Example</h4><pre class="ascii">${esc(p.example)}</pre></div>
+    <div class="sec"><h4>Brute force</h4><p style="margin:0">${rich(p.brute)}</p></div></div>`;
+}
+function openProblem(id) {
+  const el = $('#pop'); const p = S.problems[id]; if (!p) return;
+  el.innerHTML = `<div class="wrap" style="padding-bottom:0"><h3><span>${id}. ${esc(p.name)} <span class="muted small">${esc(p.d)}</span></span><button class="btn ghost sm" data-act="popClose" aria-label="Close">✕</button></h3>
+    <p style="margin:0 0 8px">${esc(p.s)}</p><pre class="ascii">${esc(p.ex)}</pre><p class="small" style="margin:8px 0 0">${lcLink(id, 'Original on LeetCode')}</p></div>`;
+  el.hidden = false;
+}
 const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
@@ -288,9 +351,10 @@ function renderTabs() {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]'); if (t) { go(t.dataset.tab); return; }
   const a = e.target.closest('[data-act]'); if (a) { ACT[a.dataset.act]?.(a.dataset, a, e); return; }
-  const c = e.target.closest('[data-card]'); if (c) { openCard(c.dataset.card); }
+  const c = e.target.closest('[data-card]'); if (c) { openCard(c.dataset.card); return; }
+  if (!$('#pop').hidden && !e.target.closest('#pop')) $('#pop').hidden = true;
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#panel').hidden) closeCard(); });
+document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (!$('#pop').hidden) $('#pop').hidden = true; else if (!$('#panel').hidden) closeCard(); });
 
 // ---------- views ----------
 function render() {
@@ -326,7 +390,7 @@ const VIEWS = {
       next.push(`<button class="item" data-card="${id}"><span class="t"><span class="kind">${s.state === 'new' ? 'Learn' : 'Continue'}</span>${esc(c.title)}</span>${chip(c.status)}<span class="d">This week's focus · ${s.seen}/${s.n} questions tried</span></button>`); }
     // 4. timed problems the plan suggests
     for (const p of (S.plan?.next_problems || []).slice(0, 3))
-      next.push(`<button class="item" data-act="timerFor" data-problem="${esc(p.name)}" data-cid="${esc(p.card || '')}" data-mode="${esc(p.mode || 'unseen')}"><span class="t"><span class="kind">Timed</span>${esc(p.name)}</span><span class="chip s-meta">${esc(p.mode || 'unseen')}</span><span class="d">${esc(p.why || 'From the plan')}</span></button>`);
+      next.push(`<button class="item" data-act="timerFor" data-problem="${esc(p.name)}" data-cid="${esc(p.card || '')}" data-mode="${esc(p.mode || 'unseen')}"><span class="t"><span class="kind">Timed</span>${esc(p.name)}</span><span class="chip s-meta">${esc(p.mode || 'unseen')}</span><span class="d">${esc(p.why || 'From the plan')}${findProblem(p.name) ? ` · ${esc(S.problems[findProblem(p.name)].s)}` : ''}</span></button>`);
     // 5. next new cards by priority
     const fresh = st.filter((x) => x.s.state === 'new' && !focus.includes(x.c.id)).sort((a, b) => STATUS_ORDER[a.c.status] - STATUS_ORDER[b.c.status]).slice(0, focus.length ? 2 : 4);
     for (const { c } of fresh) next.push(`<button class="item" data-card="${c.id}"><span class="t"><span class="kind">New</span>${esc(c.title)}</span>${chip(c.status)}<span class="d">${esc(c.evidence || c.hook).slice(0, 140)}</span></button>`);
@@ -346,7 +410,7 @@ const VIEWS = {
       <details class="fold" ${doneList.length ? '' : ''}><summary>Done · ${doneList.length} pattern${doneList.length === 1 ? '' : 's'}</summary><div class="in">${doneList.length ? `<div class="list">${doneList.map(({ c }) => `<button class="item" data-card="${c.id}"><span class="t">${esc(c.title)}</span>${chip(c.status)}</button>`).join('')}</div>` : '<p class="muted small">A pattern moves here when every question on it has passed a 7-day review.</p>'}</div></details>
       <details class="fold"><summary>How the Dojo works</summary><div class="in small">
         <ol>
-          <li><b>Learn</b> a card: hook → invariant → template → step-through → traps from your own history → how it is asked → follow-ups L1 → L3.</li>
+          <li><b>Learn</b> a card: the problem (statement, example, brute force) → signals → invariant → template → step-through on the same example → traps from your own history → how it is asked → follow-ups L1 → L3, each a new problem stated in full.</li>
           <li><b>Quiz</b>: answer by voice on the phone (think aloud) or in C++ on the laptop. Claude points out the exact miss and one hint; you retry once before the reference answer opens.</li>
           <li><b>Spaced reviews</b> at 1, 3, 7, 21 and 45 days. A pattern is mastered when all its questions pass the 7-day review.</li>
           <li><b>Timer</b>: unseen and cold problems with three splits: approach said (T1), code done (T2), dry-run done (T3). Misses come back for a cold re-solve.</li>
@@ -414,6 +478,7 @@ const VIEWS = {
           <select id="t-mode" ${running ? 'disabled' : ''} style="max-width:150px">${['unseen', 'cold', 'new', 'mock'].map((m) => `<option ${t.mode === m ? 'selected' : ''}>${m}</option>`).join('')}</select>
         </div>
       </div>
+      ${(() => { const pid = findProblem(t.problem); return pid ? `<div class="box prob"><h4><span>The problem</span></h4>${statementHtml(pid)}</div>` : t.problem ? `<p class="muted small">No statement stored for this problem. Read it from the source before starting the clock.</p>` : ''; })()}
       <div class="timer" id="t-clock">${fmtSecs(running ? (Date.now() - t.t0) / 1000 : t.end ? (t.end - t.t0) / 1000 : 0)}</div>
       ${!t.t0 ? `<button class="btn primary" data-act="tStart">Start the clock</button>` : `
       <div class="splits">
@@ -472,7 +537,7 @@ const VIEWS = {
     const rows = [
       ['Home', 'Your start page. Progress strip (patterns mastered, reviews due, minutes this week vs target, streak), this phase of the plan, and <b>Do next</b>: due reviews first, then cold re-solves, this week\'s focus cards, timed problems from the plan, and new cards. Mastered patterns sink into <b>Done</b>.'],
       ['Router', 'Train the first 5 minutes: constraint → complexity table, signal → pattern table, and a drill that shows a problem and asks you to name the pattern. Use it in spare minutes on the phone.'],
-      ['Cards', 'All 37 patterns, filtered by status (decaying, weak, gap, good, strong, method). Unfinished and due cards are listed first; mastered ones go to the bottom. A card holds: signals, invariant, the first 5 minutes, mechanism, C++ template, a step-through, your own past traps, how it is asked, the follow-up ladder L1 → L3 and practice problems.'],
+      ['Cards', 'All 37 patterns, filtered by status (decaying, weak, gap, good, strong, method). Unfinished and due cards are listed first; mastered ones go to the bottom. A card holds, in order: the problem it teaches (statement, example, constraints, brute force), signals, invariant, the first 5 minutes, mechanism, C++ template and a step-through on that same example, your own past traps, how it is asked, the follow-up ladder L1 → L3 (each level restates the whole problem) and practice problems with a short statement each. Any problem name with a dotted underline opens its statement and a link to the original.'],
       ['Quiz', 'Due reviews, new questions from the next card, or a mixed set. Answer by voice (keyboard mic) or in code. On claude.ai Claude grades you and you retry once; elsewhere you compare with the reference and mark yourself.'],
       ['Timer', 'For a real problem: press Start, then <b>Approach said</b> (T1), <b>Code done</b> (T2) and <b>Dry-run done</b> (T3). Save the result and bugs. A miss comes back as a cold re-solve in 3 days.'],
       ['Progress', 'Timed-problem averages (T1/T2/T3), cold re-solve rate, quiz pass rate, minutes per day for 14 days, the plan phases, and a mastery bar for every pattern.'],
@@ -540,34 +605,37 @@ function openCard(id) {
   p.innerHTML = `
     <div class="panel-head"><div class="wrap"><button class="btn ghost" data-act="closeCard" aria-label="Back">←</button><h2>${esc(c.title)}</h2>${chip(c.status)}</div></div>
     <div class="wrap">
-      <p class="muted small" style="margin-top:12px">${esc(c.evidence || '')}</p>
-      <p class="hook">${esc(c.hook)}</p>
+      <p class="muted small" style="margin-top:12px">${rich(c.evidence || '')}</p>
       <div class="row" style="margin-top:6px"><button class="btn primary" data-act="quizCard" data-id="${c.id}">Practice this card (${s.n})</button>${S.sample ? `<button class="btn" data-act="askOpen" data-id="${c.id}">Ask the coach</button>` : ''}</div>
       <div id="ask-${c.id}"></div>
-      <div class="box"><h4>Signals</h4><ul>${c.triggers.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>
-      <div class="box"><h4>Invariant</h4><ul>${c.invariant.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>
-      <div class="box"><h4>The first 5 minutes</h4><p style="margin:0">${esc(c.five_min)}</p></div>
-      ${c.explain ? `<div class="box"><h4>Mechanism</h4>${c.explain.map((t) => `<p style="margin:0 0 8px">${esc(t)}</p>`).join('')}</div>` : ''}
+      ${cardProblemHtml(c)}
+      <p class="hook">${esc(c.hook)}</p>
+      <div class="box"><h4>Signals</h4><ul>${c.triggers.map((t) => `<li>${rich(t)}</li>`).join('')}</ul></div>
+      <div class="box"><h4>Invariant</h4><ul>${c.invariant.map((t) => `<li>${rich(t)}</li>`).join('')}</ul></div>
+      <div class="box"><h4>The first 5 minutes</h4><p style="margin:0">${rich(c.five_min)}</p></div>
+      ${c.explain ? `<div class="box"><h4>Mechanism</h4>${c.explain.map((t) => `<p style="margin:0 0 8px">${rich(t)}</p>`).join('')}</div>` : ''}
       <div class="box"><h4>Template · ${esc(c.template.lang === 'cpp' ? 'C++' : 'say it')}</h4><pre class="code">${codeHtml(c.template.code)}</pre></div>
       ${c.trace ? `<div class="box stepper" id="stepper"><h4>Step through · ${esc(c.trace.title)}</h4><pre class="ascii" id="st-s"></pre><div class="note" id="st-n"></div>
         <div class="ctl"><button class="btn" data-act="step" data-d="-1">← Back</button><span class="muted small" id="st-i"></span><button class="btn primary" data-act="step" data-d="1">Next →</button></div></div>` : ''}
-      ${c.traps?.length ? `<h3>Your traps</h3>${c.traps.map((t) => `<div class="trap"><b>${esc(t.t)}</b><div class="small" style="margin-top:4px"><code>${esc(t.input)}</code></div><div class="small" style="margin-top:4px">Fix: ${esc(t.fix)}</div></div>`).join('')}` : ''}
+      ${c.traps?.length ? `<h3>Your traps</h3>${c.traps.map((t) => `<div class="trap"><b>${rich(t.t)}</b><div class="small" style="margin-top:4px"><code>${rich(t.input)}</code></div><div class="small" style="margin-top:4px">Fix: ${rich(t.fix)}</div></div>`).join('')}` : ''}
       <h3>${S.public ? 'How it is asked' : 'How Big Tech asks it'} <span class="muted small">(${esc(c.google.confidence)} reported)</span></h3>
-      <div class="box"><p style="margin:0 0 8px">${esc(c.google.framing)}</p>
-        ${c.google.disguises?.length ? `<h4>Disguises</h4><ul>${c.google.disguises.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
-        <h4 style="margin-top:10px">Depth they probe</h4><ul>${c.google.depth.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
-        ${c.google.problems?.length ? `<h4 style="margin-top:10px">${S.public ? 'Frequently asked problems' : 'frequently asked problems'}</h4><p style="margin:0">${c.google.problems.map((p) => `<a href="https://leetcode.com/problems/${slug(p.name)}/" target="_blank" rel="noopener">${p.id}. ${esc(p.name)}</a>`).join(' · ')}</p>` : ''}</div>
+      <div class="box"><p style="margin:0 0 8px">${rich(c.google.framing)}</p>
+        ${c.google.disguises?.length ? `<h4>Disguises</h4><ul>${c.google.disguises.map((t) => `<li>${rich(t)}</li>`).join('')}</ul>` : ''}
+        <h4 style="margin-top:10px">Depth they probe</h4><ul>${c.google.depth.map((t) => `<li>${rich(t)}</li>`).join('')}</ul>
+        ${c.google.problems?.length ? `<h4 style="margin-top:10px">${S.public ? 'Frequently asked problems' : 'frequently asked problems'}</h4><ul>${c.google.problems.map((p) => `<li><a class="pref" href="#" data-act="prob" data-pid="${p.id}">${p.id}. ${esc(p.name)}</a>: ${esc(S.problems[p.id]?.s || '')}</li>`).join('')}</ul>` : ''}</div>
       <h3>Follow-up ladder</h3>
-      <p class="muted small">Say your answer out loud first, then open the level.</p>
-      <div class="ladder">${c.followups.map((f) => `<details class="rung"><summary><span class="lvl">L${f.level}</span> ${esc(f.change)}</summary>
-        <p style="margin:8px 0 6px"><b>Idea.</b> ${esc(f.idea)}</p><pre class="code">${codeHtml(f.code_delta)}</pre><p class="small muted" style="margin:6px 0 0">Complexity: ${esc(f.complexity)}</p></details>`).join('')}</div>
-      ${c.problems?.length ? `<h3>Practice problems</h3><div class="list">${c.problems.map((p) => `<button class="item" data-act="timerFor" data-problem="${p.id} ${esc(p.name)}" data-cid="${c.id}" data-mode="${p.mine === 'redo' ? 'cold' : p.mine === 'new' ? 'unseen' : 'cold'}"><span class="t">${p.id}. ${esc(p.name)} <span class="muted small">${esc(p.d || '')}</span></span><span class="chip ${p.mine === 'redo' ? 's-decaying' : p.mine === 'new' ? 's-gap' : 's-meta'}">${p.mine === 'redo' ? 'redo' : p.mine === 'new' ? 'new' : 'seen'}</span></button>`).join('')}</div>` : ''}
+      <p class="muted small">Each level is a new problem. Say your answer out loud first, then open it.</p>
+      <div class="ladder">${c.followups.map((f) => `<details class="rung"><summary><span class="lvl">L${f.level}</span> <span class="ask">${rich(f.ask || f.change)}</span></summary>
+        ${f.ask ? `<p class="small muted" style="margin:8px 0 0">What changed: ${rich(f.change)}</p>` : ''}
+        <p style="margin:8px 0 6px"><b>Idea.</b> ${rich(f.idea)}</p><pre class="code">${codeHtml(f.code_delta)}</pre><p class="small muted" style="margin:6px 0 0">Complexity: ${esc(f.complexity)}</p></details>`).join('')}</div>
+      ${c.problems?.length ? `<h3>Practice problems</h3><div class="list">${c.problems.map((p) => `<div class="pitem"><span class="t"><span>${p.id}. ${esc(p.name)} <span class="muted small">${esc(p.d || '')}</span></span><span class="chip ${p.mine === 'redo' ? 's-decaying' : p.mine === 'new' ? 's-gap' : 's-meta'}">${p.mine === 'redo' ? 'redo' : p.mine === 'new' ? 'new' : 'seen'}</span></span>
+        <span class="s">${esc(S.problems[p.id]?.s || '')}</span>
+        <div class="row"><button class="btn sm" data-act="timerFor" data-problem="${p.id} ${esc(p.name)}" data-cid="${c.id}" data-mode="${p.mine === 'redo' ? 'cold' : p.mine === 'new' ? 'unseen' : 'cold'}">Time it</button><button class="btn ghost sm" data-act="prob" data-pid="${p.id}">Example</button>${lcLink(p.id)}</div></div>`).join('')}</div>` : ''}
       <p class="hindi" style="margin-top:18px">${esc(c.hindi)}</p>
     </div>`;
   p.hidden = false; p.scrollTop = 0; document.body.style.overflow = 'hidden';
   if (c.trace) { S.step = 0; drawStep(); }
 }
-function slug(name) { return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function drawStep() {
   const c = S.byId[S.openCard]; const fr = c.trace.frames[S.step];
   $('#st-s').textContent = fr.s; $('#st-n').textContent = fr.n || ''; $('#st-i').textContent = `${S.step + 1} / ${c.trace.frames.length}`;
@@ -597,14 +665,16 @@ function quizView() {
   return `
     <div class="row" style="justify-content:space-between;margin-top:14px"><span class="muted small">${esc(z.label)} · ${z.i + 1} of ${z.items.length}</span><button class="btn ghost" data-act="quizEnd">End</button></div>
     <div class="row" style="margin-top:10px"><button class="btn ghost" data-card="${c.id}" style="padding:4px 8px;font-size:13px">${esc(c.title)}</button><span class="chip s-meta">${TYPE_LABEL[q.type]}</span></div>
-    <p class="q">${esc(q.q)}</p>
+    ${q.ctx || q.refs?.length ? `<details class="fold" ${z.attempt || z.done ? '' : 'open'}><summary>The problem</summary><div class="in">
+      ${q.ctx ? `<div class="ctxp"><p>${rich(c.problem.statement)}</p><pre class="ascii">${esc(c.problem.example)}</pre></div>` : ''}${(q.refs || []).map((id) => statementHtml(id)).join('')}</div></details>` : ''}
+    <p class="q">${rich(q.q)}</p>
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
       <div class="seg" role="group" aria-label="Answer mode"><button data-act="mode" data-m="voice" aria-pressed="${!code}">🎙 Think aloud</button><button data-act="mode" data-m="code" aria-pressed="${code}">⌨ Code</button></div>
       <span class="muted small">${z.attempt ? 'Second try' : 'First try'}</span>
     </div>
     <textarea id="ans" class="${code ? 'codey' : ''}" placeholder="${code ? 'Write C++ or pseudocode…' : 'Tap the keyboard mic and say what you would do: pattern, invariant, complexity, edge cases…'}" ${z.done ? 'disabled' : ''}>${esc(z.answers[z.attempt] ?? z.answers[z.attempt - 1] ?? '')}</textarea>
     ${fbHtml}
-    ${z.done || z.revealed ? `<div class="box"><h4>Reference answer</h4><p style="margin:0">${esc(q.key)}</p></div>` : ''}
+    ${z.done || z.revealed ? `<div class="box"><h4>Reference answer</h4><p style="margin:0">${rich(q.key)}</p></div>` : ''}
     <div class="row" style="margin-top:12px">
       ${z.done ? `<button class="btn primary" data-act="qNext">${z.i + 1 < z.items.length ? 'Next question' : 'Finish'}</button>` :
         S.sample ? `<button class="btn primary" data-act="qCheck" ${z.busy ? 'disabled' : ''}>${z.busy ? 'Claude is checking…' : z.attempt ? 'Check my retry' : 'Check with Claude'}</button>
@@ -620,7 +690,7 @@ Grade the candidate's answer to one question about the pattern "${c.title}".
 
 Pattern invariant: ${c.invariant.join(' ')}
 First-5-minutes summary: ${c.five_min}
-Question type: ${q.type} (${TYPE_LABEL[q.type]})
+${q.ctx ? `The card's problem (the question refers to it): ${c.problem.statement}\n` : ''}${(q.refs || []).map((id) => `Problem "${S.problems[id].name}": ${S.problems[id].s}\n`).join('')}Question type: ${q.type} (${TYPE_LABEL[q.type]})
 Question: ${q.q}
 Reference answer: ${q.key}
 
@@ -671,7 +741,7 @@ function drawDrill() {
   const z = S.drill;
   el.innerHTML = `<p class="q" style="margin-top:0">${esc(z.d.q)}</p>
     <div class="opts">${z.opts.map((id) => { const cls = z.picked ? (id === z.d.a ? 'right' : id === z.picked ? 'wrong' : '') : ''; return `<button class="btn ${cls}" data-act="drillPick" data-id="${id}" ${z.picked ? 'disabled' : ''}>${esc(S.byId[id].title)}</button>`; }).join('')}</div>
-    ${z.picked ? `<div class="fb"><div class="verdict v-${z.picked === z.d.a ? 'pass' : 'fail'}">${z.picked === z.d.a ? 'Right' : 'Not this one'} · ${Math.round(z.secs)} s</div><p style="margin:6px 0 0">${esc(z.d.why)}</p></div>
+    ${z.picked ? `<div class="fb"><div class="verdict v-${z.picked === z.d.a ? 'pass' : 'fail'}">${z.picked === z.d.a ? 'Right' : 'Not this one'} · ${Math.round(z.secs)} s</div><p style="margin:6px 0 0">${rich(z.d.why)}</p></div>
       <div class="row" style="margin-top:10px"><button class="btn primary" data-act="drillNext">Next problem</button><button class="btn ghost" data-card="${z.d.a}">Open the card</button></div>` : ''}`;
 }
 AFTER.router = drawDrill;
@@ -679,7 +749,7 @@ AFTER.router = drawDrill;
 // ---------- coach chat ----------
 function coachRules(c) {
   return `You are the learner's DSA tutor (C++ engineer, 11 years, preparing for Big Tech coding rounds). Topic: the pattern "${c.title}".
-Card context: hook: ${c.hook} | invariant: ${c.invariant.join(' ')} | template:\n${c.template.code}\n| traps from his history: ${(c.traps || []).map((t) => t.t + ' (' + t.input + ')').join('; ')}
+Card context: ${c.problem ? `the card's problem: ${c.problem.statement} Example: ${c.problem.example} | ` : ''}hook: ${c.hook} | invariant: ${c.invariant.join(' ')} | template:\n${c.template.code}\n| traps from his history: ${(c.traps || []).map((t) => t.t + ' (' + t.input + ')').join('; ')}
 Teach like this: start from the problem and one concrete example with real data; show ASCII pictures for state changes; code as short pseudocode (≤ 15 lines) plus a C++ note; define every term; be direct; end with ONE short check question for him to answer. Keep it under 250 words unless he asks for more. Plain text, no Markdown tables.`;
 }
 async function askCoach(cid) {
@@ -702,6 +772,8 @@ function drawChat(cid, pending) {
 // ---------- actions ----------
 const ACT = {
   closeCard,
+  prob: (d, el, e) => { e.preventDefault(); e.stopPropagation(); openProblem(d.pid); },
+  popClose: () => { $('#pop').hidden = true; },
   filter: (d) => { S.filter = d.f; render(); },
   step: (d) => { const c = S.byId[S.openCard]; S.step = Math.max(0, Math.min(c.trace.frames.length - 1, S.step + +d.d)); drawStep(); },
   quizCard: (d) => { const c = S.byId[d.id]; const t = today();
@@ -768,6 +840,7 @@ async function boot() {
     S.cards = data.cards.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]); S.router = data.router; S.version = data.version; S.public = data.edition === 'public';
     if (S.public) $('#sub').textContent = 'Data structures & algorithms practice';
     for (const c of S.cards) S.byId[c.id] = c;
+    indexProblems(data.problems);
   } catch (e) { $('#main').innerHTML = `<p style="margin-top:24px">The cards did not load (${esc(e.message)}). Reload the page.</p>`; return; }
   const h = location.hash.slice(1);
   S.tab = TABS.some(([k]) => k === h) ? h : (lsGet('dojo-tab') || 'home');
