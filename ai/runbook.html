@@ -1,0 +1,1332 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Applied AI Runbook</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg:        #faf9f6;
+    --surface:   #ffffff;
+    --code-bg:   #f2efe8;
+    --ink:       #1b1917;
+    --muted:     #6e675e;
+    --line:      #e3ded4;
+    --accent:    #0d6157;
+    --accent-2:  #0a4a43;
+    --accent-soft:#e2efec;
+    --warn:      #8a5500;
+    --warn-soft: #fbf1df;
+    --warn-line: #e8d5ae;
+    --ok:        #2f6b2a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:        #14171a;
+      --surface:   #1b1f22;
+      --code-bg:   #0f1214;
+      --ink:       #e9e5de;
+      --muted:     #9ba29e;
+      --line:      #2b3134;
+      --accent:    #58bcab;
+      --accent-2:  #7ad2c2;
+      --accent-soft:#16302d;
+      --warn:      #ddaa4f;
+      --warn-soft: #251d11;
+      --warn-line: #463618;
+      --ok:        #7cc06f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:        #14171a;
+    --surface:   #1b1f22;
+    --code-bg:   #0f1214;
+    --ink:       #e9e5de;
+    --muted:     #9ba29e;
+    --line:      #2b3134;
+    --accent:    #58bcab;
+    --accent-2:  #7ad2c2;
+    --accent-soft:#16302d;
+    --warn:      #ddaa4f;
+    --warn-soft: #251d11;
+    --warn-line: #463618;
+    --ok:        #7cc06f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Public Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.62;
+    margin: 0;
+    padding-inline: 20px;
+    padding-block: 0 72px;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  /* ---------- progress bar ---------- */
+  .progress {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    margin-inline: -20px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .progress-track {
+    flex: 1;
+    height: 5px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width .3s ease;
+  }
+  .progress b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  /* ---------- masthead ---------- */
+  header.mast { padding-block: 44px 8px; }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(30px, 6vw, 42px);
+    line-height: 1.12;
+    letter-spacing: -.015em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 17px;
+    color: var(--muted);
+    margin: 0 0 8px;
+    max-width: 60ch;
+  }
+
+  /* ---------- steps ---------- */
+  section.step {
+    border-top: 1px solid var(--line);
+    padding-block: 34px 6px;
+  }
+  .step-head {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+  .step-num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 3px 8px;
+    flex: none;
+    margin-top: 7px;
+    font-variant-numeric: tabular-nums;
+  }
+  h2 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(22px, 4.2vw, 27px);
+    line-height: 1.22;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .time {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 2px 0 0 54px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .step-body { margin-left: 0; }
+  @media (min-width: 620px) { .step-body { margin-left: 54px; } }
+
+  h3 {
+    font-family: "Public Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    margin: 26px 0 8px;
+    letter-spacing: -.005em;
+  }
+  p { margin: 0 0 14px; max-width: 66ch; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; max-width: 66ch; }
+  li { margin-bottom: 7px; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  strong { font-weight: 600; }
+
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .875em;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+    word-break: break-word;
+  }
+
+  /* ---------- code blocks ---------- */
+  .code {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    margin: 0 0 8px;
+  }
+  .code-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--line);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .04em;
+  }
+  .code pre {
+    margin: 0;
+    padding: 13px 14px;
+    overflow-x: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.68;
+    tab-size: 2;
+  }
+  .code pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    word-break: normal;
+  }
+  .copy {
+    font-family: "Public Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 3px 9px;
+    cursor: pointer;
+  }
+  .copy:hover { color: var(--ink); border-color: var(--muted); }
+  .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .copy.done { color: var(--ok); border-color: var(--ok); }
+
+  /* what-it-does explainer */
+  .explain {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 12px 15px;
+    margin: 0 0 20px;
+    font-size: 14.5px;
+  }
+  .explain p:last-child, .explain ul:last-child { margin-bottom: 0; }
+  .explain-title {
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 7px;
+  }
+  .flags { list-style: none; padding: 0; margin: 0; }
+  .flags li {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+  .flags code { flex: none; min-width: 74px; }
+
+  .warn {
+    background: var(--warn-soft);
+    border: 1px solid var(--warn-line);
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin: 0 0 20px;
+    font-size: 14.5px;
+  }
+  .warn p:last-child { margin-bottom: 0; }
+  .warn-title {
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--warn);
+    font-weight: 600;
+    margin: 0 0 7px;
+  }
+
+  /* checkbox */
+  .check {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    margin: 22px 0 4px;
+    padding: 11px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 14.5px;
+  }
+  .check input { margin: 4px 0 0; accent-color: var(--accent); flex: none; width: 16px; height: 16px; }
+  .check span { color: var(--muted); }
+  .check input:checked + span { color: var(--ok); text-decoration: line-through; text-decoration-color: var(--line); }
+  .check:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* tables */
+  .tablewrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 7px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 460px; }
+  th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  tr:last-child td { border-bottom: none; }
+  td code { font-size: 12.5px; }
+
+  .kbd {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    background: var(--surface);
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    margin-top: 40px;
+    padding-top: 22px;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="progress">
+    <span>Progress</span>
+    <div class="progress-track"><div class="progress-fill" id="fill"></div></div>
+    <span><b id="pdone">0</b> / <b id="ptotal">0</b></span>
+  </div>
+
+  <header class="mast">
+    <p class="eyebrow">Applied AI Masterclass &middot; Sessions 1 &amp; 2</p>
+    <h1>From a blank Ubuntu terminal to three working prototypes</h1>
+    <p class="standfirst">Every command is explained before you run it. Work through it in order &mdash; tick each box as you go and the page remembers where you stopped. Budget about three hours, spread over as many sittings as you like.</p>
+  </header>
+
+  <!-- ============ ORIENTATION ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">00</span>
+      <h2>First, the picture in your head</h2>
+    </div>
+    <p class="time">3 min &middot; nothing to type</p>
+    <div class="step-body">
+      <p>Three separate places are involved, and mixing them up is the single biggest source of confusion. Keep them straight:</p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Place</th><th>What it is</th><th>Where your course code goes</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Windows</strong></td>
+              <td>Your normal desktop. Chrome, Explorer, <code>C:\Users\...</code></td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td><strong>WSL Ubuntu</strong></td>
+              <td>A real Linux running inside Windows. Its own filesystem, its own Python, its own home folder at <code>/home/yourname</code> (shortcut: <code>~</code>)</td>
+              <td><strong>Yes &mdash; here</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Google's servers</strong></td>
+              <td>Where the Gemini model actually runs. Your code sends text over the internet and gets text back</td>
+              <td>No &mdash; you never install a model</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>One thing worth knowing now: from Ubuntu, your Windows C: drive appears as <code>/mnt/c/</code>. It is tempting to put your project there so Explorer can see it. <strong>Don't.</strong> Reading many small files across that Windows&harr;Linux boundary is roughly ten times slower, and Git and Python both read thousands of small files. Keep the project in Ubuntu's own filesystem. You can still open it from Windows &mdash; Step&nbsp;5 shows how.</p>
+    </div>
+  </section>
+
+  <!-- ============ STEP 1 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">01</span>
+      <h2>Eight terminal commands, and how to paste into one</h2>
+    </div>
+    <p class="time">15 min</p>
+    <div class="step-body">
+      <p>Open Ubuntu: press the Windows key, type <strong>Ubuntu</strong>, hit Enter. You get a black window ending in <code>$</code>. That <code>$</code> is the prompt &mdash; it means "I'm waiting for a command." You type a command, press Enter, it runs.</p>
+
+      <h3>Pasting</h3>
+      <p>In this terminal, <span class="kbd">Ctrl</span>+<span class="kbd">V</span> may do nothing. Use <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">V</span>, or just right-click. Copy is <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">C</span>. Every code block on this page has a Copy button on the right.</p>
+
+      <h3>The eight you need</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>pwd</code></td><td><em>print working directory</em> &mdash; tells you which folder you are currently in. Use it whenever you feel lost.</td></tr>
+            <tr><td><code>ls</code></td><td><em>list</em> &mdash; shows files in the current folder. <code>ls -la</code> also shows hidden files (ones starting with a dot).</td></tr>
+            <tr><td><code>cd foo</code></td><td><em>change directory</em> &mdash; go into folder <code>foo</code>. <code>cd ..</code> goes up one level. <code>cd ~</code> goes home.</td></tr>
+            <tr><td><code>mkdir foo</code></td><td><em>make directory</em> &mdash; create a folder called <code>foo</code>.</td></tr>
+            <tr><td><code>cat file.txt</code></td><td>dump a file's contents onto the screen.</td></tr>
+            <tr><td><code>nano file.txt</code></td><td>open a simple text editor. Type your text, then <span class="kbd">Ctrl</span>+<span class="kbd">O</span> then <span class="kbd">Enter</span> to save, <span class="kbd">Ctrl</span>+<span class="kbd">X</span> to quit.</td></tr>
+            <tr><td><code>clear</code></td><td>wipe the screen. Nothing is deleted, it just tidies up.</td></tr>
+            <tr><td><code>exit</code></td><td>close the terminal.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="explain">
+        <p class="explain-title">Two habits that save hours</p>
+        <ul>
+          <li><strong>Tab completes.</strong> Type <code>cd ~/co</code> and press <span class="kbd">Tab</span> &mdash; it fills in <code>code/</code>. Fewer typos.</li>
+          <li><strong>Up arrow repeats.</strong> Press <span class="kbd">&uarr;</span> to bring back the last command instead of retyping it.</li>
+        </ul>
+      </div>
+
+      <p>Try it now &mdash; run these three, one at a time, and read what comes back:</p>
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>pwd
+ls -la
+cd ~</code></pre>
+      </div>
+
+      <label class="check"><input type="checkbox" data-k="s1"><span>I can open Ubuntu, paste into it, and I know what <code>pwd</code>, <code>ls</code> and <code>cd</code> do</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 2 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">02</span>
+      <h2>What that install command actually did</h2>
+    </div>
+    <p class="time">8 min</p>
+    <div class="step-body">
+      <p>You ran this. Here is what each piece means.</p>
+
+      <div class="code">
+        <div class="code-label"><span>the command you ran</span><button class="copy">Copy</button></div>
+<pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre>
+      </div>
+
+      <div class="explain">
+        <p class="explain-title">Piece by piece</p>
+        <ul class="flags">
+          <li><code>curl</code><span>A downloader. Fetches whatever is at a URL and prints it to the screen.</span></li>
+          <li><code>-f</code><span>Fail quietly if the server returns an error page, instead of downloading the error page itself.</span></li>
+          <li><code>-s</code><span>Silent &mdash; no progress bar.</span></li>
+          <li><code>-S</code><span>...but still show me real errors. <code>-s</code> and <code>-S</code> are almost always used together.</span></li>
+          <li><code>-L</code><span>Follow redirects. If the URL moved, go to the new address.</span></li>
+          <li><code>|</code><span>A <em>pipe</em>. Takes the output of the thing on the left and feeds it as input to the thing on the right.</span></li>
+          <li><code>bash</code><span>The shell. Given a script on its input, it runs every line of it.</span></li>
+        </ul>
+        <p style="margin-top:10px">So end to end: <strong>download a script from the internet and immediately execute it with your user's permissions.</strong></p>
+      </div>
+
+      <div class="warn">
+        <p class="warn-title">The habit to build</p>
+        <p>That pattern is everywhere in developer docs and it is fine <em>when you trust the domain</em> &mdash; here, <code>claude.ai</code> is Anthropic's own. But you should never run it on a URL you haven't looked at. The safe version separates download from execution so you can read it first:</p>
+        <div class="code" style="margin-top:10px">
+          <div class="code-label"><span>the careful way</span><button class="copy">Copy</button></div>
+<pre><code>curl -fsSL https://claude.ai/install.sh -o install.sh
+less install.sh     # read it; press q to quit
+bash install.sh</code></pre>
+        </div>
+        <p>Apply this to anything I or anyone else hands you.</p>
+      </div>
+
+      <h3>Did it work?</h3>
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>claude --version
+claude doctor</code></pre>
+      </div>
+      <p>A version number like <code>2.1.211 (Claude Code)</code> means it installed. If you get <code>command not found</code>, the program exists but your shell doesn't know where to look. Fix it:</p>
+      <div class="code">
+        <div class="code-label"><span>fix PATH</span><button class="copy">Copy</button></div>
+<pre><code>echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.bashrc
+source ~/.bashrc
+claude --version</code></pre>
+      </div>
+      <div class="explain">
+        <p class="explain-title">Why that works</p>
+        <p><code>PATH</code> is a list of folders your shell searches when you type a command name. The installer put <code>claude</code> in <code>~/.local/bin</code>, which wasn't on the list. The first line appends that folder to the list inside <code>~/.bashrc</code> &mdash; a file Ubuntu runs every time you open a terminal &mdash; so the fix sticks. <code>source</code> re-reads that file right now instead of making you close and reopen the window.</p>
+      </div>
+
+      <p>We'll come back to Claude Code in Step 12. Right now it's installed and that's enough.</p>
+
+      <label class="check"><input type="checkbox" data-k="s2"><span><code>claude --version</code> prints a version number</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 3 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">03</span>
+      <h2>Make sure Python and Git are there</h2>
+    </div>
+    <p class="time">5 min</p>
+    <div class="step-body">
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>python3 --version
+git --version</code></pre>
+      </div>
+      <p>You want Python <strong>3.10 or higher</strong>. Ubuntu 22.04 ships 3.10, Ubuntu 24.04 ships 3.12 &mdash; either is fine. If anything is missing or you get an error:</p>
+
+      <div class="code">
+        <div class="code-label"><span>install the basics</span><button class="copy">Copy</button></div>
+<pre><code>sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git</code></pre>
+      </div>
+
+      <div class="explain">
+        <p class="explain-title">Piece by piece</p>
+        <ul class="flags">
+          <li><code>sudo</code><span>"do this as administrator". It will ask for your Ubuntu password &mdash; the one you set when you first installed WSL. Nothing appears as you type it; that's normal, just type and press Enter.</span></li>
+          <li><code>apt</code><span>Ubuntu's app store, for the command line.</span></li>
+          <li><code>update</code><span>Refresh the catalogue of what's available. Doesn't install anything.</span></li>
+          <li><code>install -y</code><span>Install the named packages; <code>-y</code> means "yes" to the confirmation prompt in advance.</span></li>
+        </ul>
+      </div>
+
+      <label class="check"><input type="checkbox" data-k="s3"><span>Python 3.10+ and Git both print versions</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 4 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">04</span>
+      <h2>Get your Gemini API key</h2>
+    </div>
+    <p class="time">5 min &middot; in your Windows browser</p>
+    <div class="step-body">
+      <p>An <strong>API key</strong> is a long random string that identifies your Google account to Google's servers. When your Python script sends a request, the key is what says "this is me, charge my quota." Treat it exactly like a password.</p>
+
+      <h3>The clicks</h3>
+      <ol>
+        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> in Chrome.</li>
+        <li>Sign in with your Google account. Accept the terms if prompted.</li>
+        <li>Click <strong>Create API key</strong> (sometimes labelled "Get API key").</li>
+        <li>If it asks which Google Cloud project to use, choose <strong>Create API key in new project</strong>. You do not need to set up billing.</li>
+        <li>A long string starting <code>AIza...</code> appears. Click the copy icon.</li>
+      </ol>
+
+      <p>Keep it on your clipboard &mdash; you'll paste it in Step 7. If you lose it, come back to the same page; the key is listed there.</p>
+
+      <div class="warn">
+        <p class="warn-title">Two things about the free tier</p>
+        <p><strong>It is genuinely free and needs no card.</strong> The Flash-family models are free to call, with per-minute and per-day request caps. Those caps are fine for Sessions 1 and 2, where each exercise is one or two calls. They will start to bite in Session 3 onward, when an agent loop makes twenty calls per run &mdash; deal with that when you get there.</p>
+        <p style="margin-top:10px"><strong>Free-tier prompts are used to improve Google's products.</strong> The paid tier explicitly is not. For coursework that's fine. Never point this key at your employer's data.</p>
+      </div>
+
+      <label class="check"><input type="checkbox" data-k="s4"><span>I have an API key starting <code>AIza</code> copied</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 5 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">05</span>
+      <h2>Create the project folders</h2>
+    </div>
+    <p class="time">5 min</p>
+    <div class="step-body">
+      <p>Small on purpose. You have two sessions of material and three exercises to build; a sprawling structure now would be scaffolding you maintain instead of code you learn from. Grow it when a session demands it.</p>
+
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>mkdir -p ~/code/applied-ai
+cd ~/code/applied-ai
+mkdir -p session1/notes session1/p1-summarize session1/p2-itinerary
+mkdir -p session2/notes session2/p1-weather-tool
+ls</code></pre>
+      </div>
+
+      <div class="explain">
+        <p class="explain-title">Piece by piece</p>
+        <ul class="flags">
+          <li><code>~</code><span>Shorthand for your home folder, <code>/home/yourname</code>.</span></li>
+          <li><code>mkdir -p</code><span><code>-p</code> means "create parent folders too, and don't complain if it already exists." Without it, <code>mkdir a/b/c</code> fails unless <code>a/b</code> exists.</span></li>
+        </ul>
+      </div>
+
+      <p>What you now have:</p>
+      <div class="code">
+        <div class="code-label"><span>~/code/applied-ai</span></div>
+<pre><code>applied-ai/
+├── session1/
+│   ├── notes/              ← your pre-read + class notes, one .md per topic
+│   ├── p1-summarize/       ← exercise 1
+│   └── p2-itinerary/       ← exercise 2
+└── session2/
+    ├── notes/
+    └── p1-weather-tool/    ← exercise 3</code></pre>
+      </div>
+
+      <h3>Opening this folder from Windows</h3>
+      <p>Paste this into the Windows File Explorer address bar (replace <code>yourname</code> with what <code>whoami</code> prints in Ubuntu):</p>
+      <div class="code">
+        <div class="code-label"><span>Windows Explorer address bar</span><button class="copy">Copy</button></div>
+<pre><code>\\wsl.localhost\Ubuntu\home\yourname\code\applied-ai</code></pre>
+      </div>
+      <p>VS Code handles it better still: from Ubuntu, run <code>code .</code> inside the project folder and it opens connected to WSL.</p>
+
+      <label class="check"><input type="checkbox" data-k="s5"><span>Folders created, and <code>ls</code> shows session1 and session2</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 6 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">06</span>
+      <h2>Create a virtual environment</h2>
+    </div>
+    <p class="time">8 min</p>
+    <div class="step-body">
+      <div class="explain">
+        <p class="explain-title">What a virtual environment is, and why</p>
+        <p>If you install Python packages system-wide, every project shares them. Project A needs version 1 of a library, project B needs version 2, and one of them breaks. A <strong>virtual environment</strong> is just a folder holding a private copy of Python plus this project's packages. "Activating" it points your shell at that copy instead of the system one. Nothing magic &mdash; it's a folder and a <code>PATH</code> trick.</p>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai
+python3 -m venv .venv
+source .venv/bin/activate</code></pre>
+      </div>
+
+      <p>Your prompt now starts with <code>(.venv)</code>. That is how you know it's on.</p>
+
+      <div class="explain">
+        <p class="explain-title">Piece by piece</p>
+        <ul class="flags">
+          <li><code>-m venv</code><span>Run Python's built-in <code>venv</code> module.</span></li>
+          <li><code>.venv</code><span>The folder to create. The leading dot makes it hidden, which is convention.</span></li>
+          <li><code>source</code><span>Run a script <em>in the current shell</em> so its changes stick, rather than in a child shell where they'd vanish.</span></li>
+        </ul>
+      </div>
+
+      <p>Now install the three libraries you need:</p>
+      <div class="code">
+        <div class="code-label"><span>terminal (with (.venv) showing)</span><button class="copy">Copy</button></div>
+<pre><code>pip install -U google-genai pydantic python-dotenv</code></pre>
+      </div>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Package</th><th>What it's for</th></tr></thead>
+          <tbody>
+            <tr><td><code>google-genai</code></td><td>Google's official Gemini SDK. Arpit's exercises say "official SDK" &mdash; this is it.</td></tr>
+            <tr><td><code>pydantic</code></td><td>Describes the exact shape you want data in, and validates it. Session 1, exercise 2 is built on this.</td></tr>
+            <tr><td><code>python-dotenv</code></td><td>Reads your API key out of a <code>.env</code> file so it never appears in your code.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="warn">
+        <p class="warn-title">Remember this one thing</p>
+        <p>The virtual environment is <strong>per-terminal-window</strong>. Every new Ubuntu window, before you run any Python, do:</p>
+        <div class="code" style="margin-top:10px">
+          <div class="code-label"><span>every new terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai &amp;&amp; source .venv/bin/activate</code></pre>
+        </div>
+        <p>If you see <code>ModuleNotFoundError: No module named 'google'</code>, this is almost always why. <code>deactivate</code> turns it off.</p>
+      </div>
+
+      <label class="check"><input type="checkbox" data-k="s6"><span>Prompt shows <code>(.venv)</code> and the three packages installed</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 7 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">07</span>
+      <h2>Store the key so you never leak it</h2>
+    </div>
+    <p class="time">6 min</p>
+    <div class="step-body">
+      <p>Keys get leaked by being typed into source files that later get pushed to GitHub. Bots scan public repos for exactly this. The fix is a file that holds the key and never leaves your machine.</p>
+
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai
+nano .env</code></pre>
+      </div>
+
+      <p>Type this line, pasting your real key after the <code>=</code> with no spaces and no quotes:</p>
+      <div class="code">
+        <div class="code-label"><span>.env</span></div>
+<pre><code>GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</code></pre>
+      </div>
+      <p>Save and quit: <span class="kbd">Ctrl</span>+<span class="kbd">O</span>, <span class="kbd">Enter</span>, <span class="kbd">Ctrl</span>+<span class="kbd">X</span>.</p>
+
+      <p>Now tell Git to never upload it:</p>
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>nano .gitignore</code></pre>
+      </div>
+      <div class="code">
+        <div class="code-label"><span>.gitignore</span><button class="copy">Copy</button></div>
+<pre><code>.env
+.venv/
+__pycache__/
+*.pyc</code></pre>
+      </div>
+      <p>Save and quit the same way.</p>
+
+      <div class="explain">
+        <p class="explain-title">What <code>.gitignore</code> does</p>
+        <p>It's a list of things Git pretends not to see. <code>.env</code> keeps your key off GitHub. <code>.venv/</code> keeps thousands of library files out of your repo &mdash; anyone can recreate them with one <code>pip install</code>. <code>__pycache__/</code> and <code>*.pyc</code> are Python's compiled scratch files.</p>
+      </div>
+
+      <label class="check"><input type="checkbox" data-k="s7"><span><code>.env</code> has my key and <code>.gitignore</code> lists it</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 8 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">08</span>
+      <h2>Prototype 1 &mdash; summarise a long file</h2>
+    </div>
+    <p class="time">25 min &middot; Session 1, exercise 1</p>
+    <div class="step-body">
+      <p>The assignment: <em>"Have a file containing long text. Summarize it using your favorite LLM via its official SDK, then output the summary."</em></p>
+
+      <h3>First, something to summarise</h3>
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai/session1/p1-summarize
+nano article.txt</code></pre>
+      </div>
+      <p>Paste in several paragraphs of anything &mdash; a blog post, a Wikipedia section, one of Arpit's articles. Aim for at least 500 words so the summary is doing real work. Save and quit.</p>
+
+      <h3>The script</h3>
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>nano summarize.py</code></pre>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>summarize.py</span><button class="copy">Copy</button></div>
+<pre><code>import os
+
+from dotenv import load_dotenv
+from google import genai
+
+# 1. Read .env (walks up the folders until it finds one) into environment vars
+load_dotenv()
+
+# 2. Build the client. This object knows your key and how to reach Google.
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+# 3. Read the whole file into a Python string
+with open("article.txt", "r", encoding="utf-8") as f:
+    article = f.read()
+
+print(f"Read {len(article)} characters, roughly {len(article) // 4} tokens.\n")
+
+# 4. Build the prompt. The delimiters make it unambiguous to the model
+#    where your instruction ends and the data begins.
+prompt = f"""Summarise the text between the --- markers in exactly 5 bullet points.
+Be specific. Do not add anything that is not in the text.
+
+---
+{article}
+---"""
+
+# 5. Send it. This is the network call.
+interaction = client.interactions.create(
+    model="gemini-3.8-flash",
+    input=prompt,
+)
+
+# 6. Print what came back
+print(interaction.output_text)</code></pre>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>run it</span><button class="copy">Copy</button></div>
+<pre><code>python summarize.py</code></pre>
+      </div>
+
+      <div class="explain">
+        <p class="explain-title">What just happened</p>
+        <p>Your script turned a string into an HTTPS request, Google ran a model over it on their hardware, and sent text back. Nothing ran locally except your six lines. The <code>len(article) // 4</code> line is a rough rule of thumb &mdash; English averages about four characters per token, and tokens are the unit models are billed and rate-limited in. Getting a feel for that number now will pay off in Session 2 when you start worrying about context windows.</p>
+      </div>
+
+      <div class="warn">
+        <p class="warn-title">If the model name errors</p>
+        <p>Model IDs change every few months. If you get a "model not found" error, list what your key can actually reach and swap the name in line 5:</p>
+        <div class="code" style="margin-top:10px">
+          <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>python -c "
+from dotenv import load_dotenv; load_dotenv()
+import os
+from google import genai
+c = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
+for m in c.models.list(): print(m.name)
+"</code></pre>
+        </div>
+        <p>Pick any name with <code>flash</code> in it &mdash; those are the free ones.</p>
+      </div>
+
+      <h3>Now actually learn something from it</h3>
+      <p>Don't stop at "it printed something." Change one thing at a time and watch what moves:</p>
+      <ul>
+        <li>Ask for 3 bullets instead of 5. Does it obey exactly?</li>
+        <li>Remove the <code>---</code> markers. Does the model start summarising your <em>instruction</em> as well as the article?</li>
+        <li>Delete "Do not add anything that is not in the text." Does it start inventing?</li>
+        <li>Run the identical script twice. Is the output identical? Why not?</li>
+      </ul>
+      <p>Write the answers in <code>session1/notes/</code>. That file is what you'll actually revise from.</p>
+
+      <label class="check"><input type="checkbox" data-k="s8"><span>Prototype 1 runs and prints a summary</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 9 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">09</span>
+      <h2>Prototype 2 &mdash; force the output into a schema</h2>
+    </div>
+    <p class="time">30 min &middot; Session 1, exercise 2</p>
+    <div class="step-body">
+      <div class="explain">
+        <p class="explain-title">Why this exercise exists</p>
+        <p>Prototype 1 returned prose. Prose is useless to the next program in a pipeline &mdash; you can't reliably pull "day 3's activities" out of a paragraph. Real systems need the model to emit a <em>fixed shape</em>. You declare that shape as a Pydantic class, hand its JSON schema to the API, and the model is constrained to produce matching JSON. This is the single most load-bearing technique in the whole course.</p>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai/session1/p2-itinerary
+nano itinerary.py</code></pre>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>itinerary.py</span><button class="copy">Copy</button></div>
+<pre><code>import json
+import os
+
+from dotenv import load_dotenv
+from google import genai
+from pydantic import BaseModel
+
+load_dotenv()
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+# ---- 1. Declare the shape you want ------------------------------------
+# Each class is one JSON object. Types are enforced.
+
+class DayPlan(BaseModel):
+    day: int
+    activities: list[str]
+
+class Itinerary(BaseModel):
+    destination: str
+    trip_duration_days: int
+    budget_category: str
+    top_attractions: list[str]
+    daily_plan: list[DayPlan]
+
+# ---- 2. Ask for it -----------------------------------------------------
+
+prompt = (
+    "Pick any random source city and any random destination city in the world. "
+    "Build a travel itinerary using only your own knowledge. "
+    "budget_category must be one of: budget, mid-range, luxury."
+)
+
+interaction = client.interactions.create(
+    model="gemini-3.8-flash",
+    input=prompt,
+    response_format={
+        "type": "text",
+        "mime_type": "application/json",
+        "schema": Itinerary.model_json_schema(),
+    },
+)
+
+# ---- 3. Validate what came back ---------------------------------------
+# If the model returned the wrong shape, this line raises. That is the point:
+# you find out here, not three functions later.
+
+trip = Itinerary.model_validate_json(interaction.output_text)
+
+# ---- 4. Use it like a normal Python object ----------------------------
+
+print(f"{trip.destination} — {trip.trip_duration_days} days ({trip.budget_category})")
+print(f"Top attractions: {', '.join(trip.top_attractions)}\n")
+
+for day in trip.daily_plan:
+    print(f"Day {day.day}:")
+    for activity in day.activities:
+        print(f"   • {activity}")
+
+print("\n--- raw JSON ---")
+print(json.dumps(trip.model_dump(), indent=2))</code></pre>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>run it</span><button class="copy">Copy</button></div>
+<pre><code>python itinerary.py</code></pre>
+      </div>
+
+      <div class="explain">
+        <p class="explain-title">The three lines that matter</p>
+        <ul>
+          <li><code>Itinerary.model_json_schema()</code> turns your Python classes into a JSON Schema document &mdash; the machine-readable description of the shape. That's what the API understands.</li>
+          <li><code>response_format={...}</code> tells Gemini to constrain its output to that schema rather than writing free text.</li>
+          <li><code>Itinerary.model_validate_json(...)</code> parses the returned JSON string <em>and checks every field and type</em>, giving you back a real Python object with autocomplete and <code>trip.daily_plan[0].day</code> access.</li>
+        </ul>
+      </div>
+
+      <h3>Experiments worth running</h3>
+      <ul>
+        <li>Add a field the model can't possibly know, like <code>flight_number: str</code>. Does it invent one? What does that tell you about trusting schema-constrained output?</li>
+        <li>Change <code>trip_duration_days: int</code> to <code>trip_duration_days: str</code>. Watch the output type change.</li>
+        <li>Remove <code>response_format</code> entirely but keep asking for JSON in the prompt. Run it five times. How often does it come back as valid, parseable JSON? This is the difference between prompting for a format and constraining to one.</li>
+      </ul>
+
+      <label class="check"><input type="checkbox" data-k="s9"><span>Prototype 2 prints a validated itinerary</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 10 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">10</span>
+      <h2>Prototype 3 &mdash; tool calling</h2>
+    </div>
+    <p class="time">35 min &middot; Session 2, exercise 1</p>
+    <div class="step-body">
+      <div class="explain">
+        <p class="explain-title">The mental model &mdash; read this before the code</p>
+        <p>The model cannot fetch the weather. It has no internet, no clock, no database. What it <em>can</em> do is read a description of a function you own and reply: "I'd like you to run <code>get_weather</code> with <code>city="Jaipur"</code>."</p>
+        <p style="margin-top:10px">So a tool call is <strong>two round trips, and your code does the actual work in between</strong>:</p>
+        <ol style="margin-top:10px">
+          <li>You send the question <em>plus</em> a description of the tools available.</li>
+          <li>The model replies with a <code>function_call</code> &mdash; a name and arguments. It has <em>not</em> answered your question yet.</li>
+          <li><strong>Your Python runs the real function.</strong> This is the part people miss: the model never executes anything.</li>
+          <li>You send the result back.</li>
+          <li>The model writes the final sentence using that result.</li>
+        </ol>
+        <p style="margin-top:10px">Every agent framework you'll meet in Session 3 is this loop, wrapped. Understand it here and Session 3 becomes easy.</p>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai/session2/p1-weather-tool
+nano weather.py</code></pre>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>weather.py</span><button class="copy">Copy</button></div>
+<pre><code>import json
+import os
+import random
+
+from dotenv import load_dotenv
+from google import genai
+
+load_dotenv()
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+MODEL = "gemini-3.8-flash"
+
+# ---- 1. The real function. Fake data, real behaviour. -----------------
+
+def get_weather(city: str) -> dict:
+    random.seed(city)          # same city always gives the same answer
+    return {
+        "temperature_c": round(random.uniform(15, 42), 1),
+        "condition": random.choice(["Clear", "Haze", "Light rain", "Cloudy"]),
+        "humidity": random.randint(30, 90),
+    }
+
+# ---- 2. How you describe that function TO the model -------------------
+# This is just a dict. The model reads the descriptions to decide when
+# to call it and what to pass. Write them for a human; that's who reads them.
+
+get_weather_declaration = {
+    "type": "function",
+    "name": "get_weather",
+    "description": "Get the current weather for a city.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "city": {
+                "type": "string",
+                "description": "Name of the city, for example Noida",
+            },
+        },
+        "required": ["city"],
+    },
+}
+
+# ---- 3. Round trip one: ask, and offer the tool -----------------------
+
+first = client.interactions.create(
+    model=MODEL,
+    input="Pick one random city in India and report its current weather.",
+    tools=[get_weather_declaration],
+)
+
+fc = next(s for s in first.steps if s.type == "function_call")
+print(f"[model wants to call] {fc.name}({fc.arguments})")
+
+# ---- 4. YOUR code runs the function -----------------------------------
+
+result = get_weather(**fc.arguments)
+print(f"[your code returned]  {result}")
+
+# ---- 5. Round trip two: hand the result back --------------------------
+
+final = client.interactions.create(
+    model=MODEL,
+    input=[
+        {
+            "type": "function_result",
+            "name": fc.name,
+            "call_id": fc.id,
+            "result": [{"type": "text", "text": json.dumps(result)}],
+        }
+    ],
+    tools=[get_weather_declaration],
+    previous_interaction_id=first.id,
+)
+
+print(f"\n[final answer]\n{final.output_text}")</code></pre>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>run it</span><button class="copy">Copy</button></div>
+<pre><code>python weather.py</code></pre>
+      </div>
+
+      <div class="explain">
+        <p class="explain-title">The bits of syntax you may not have seen</p>
+        <ul class="flags">
+          <li><code>next(...)</code><span>Takes the first item from a generator. Here: the first step in the response whose type is <code>function_call</code>.</span></li>
+          <li><code>**fc.arguments</code><span>Unpacks a dict into named arguments. <code>{"city": "Jaipur"}</code> becomes <code>get_weather(city="Jaipur")</code>.</span></li>
+          <li><code>call_id</code><span>Links your result back to the specific request. Matters once the model asks for several tools at once.</span></li>
+          <li><code>previous_interaction_id</code><span>Tells Google to continue the same conversation rather than start fresh, so it still remembers the question.</span></li>
+        </ul>
+      </div>
+
+      <h3>Experiments worth running</h3>
+      <ul>
+        <li>Change the description to something vague like <code>"gets data"</code>. Does the model still call it correctly? This is why tool descriptions are prompt engineering.</li>
+        <li>Ask "What is 17 times 23?" while offering only the weather tool. Does it call the wrong tool, or correctly decline to use one?</li>
+        <li>Make <code>get_weather</code> raise an exception. What does your script do? Now think about what a production agent would need to do instead.</li>
+        <li>Ask for the weather in <em>two</em> cities. Look at <code>first.steps</code> &mdash; how many <code>function_call</code> steps come back? Your code currently handles one.</li>
+      </ul>
+
+      <label class="check"><input type="checkbox" data-k="s10"><span>Prototype 3 shows the call, the result, and a final answer</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 11 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">11</span>
+      <h2>Push it to GitHub</h2>
+    </div>
+    <p class="time">15 min</p>
+    <div class="step-body">
+      <div class="code">
+        <div class="code-label"><span>one-time Git setup</span><button class="copy">Copy</button></div>
+<pre><code>git config --global user.name "Your Name"
+git config --global user.email "you@example.com"</code></pre>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai
+git init -b main
+git add .
+git status</code></pre>
+      </div>
+
+      <div class="warn">
+        <p class="warn-title">Stop and read the output of <code>git status</code></p>
+        <p><code>.env</code> must <strong>not</strong> appear in the list of files to be committed. If it does, your <code>.gitignore</code> isn't being picked up &mdash; check it's in <code>~/code/applied-ai/</code> and spelled exactly <code>.gitignore</code>. Fix it before continuing. A key pushed to a public repo is compromised within minutes.</p>
+      </div>
+
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>git commit -m "Session 1 and 2 prototypes"
+git remote add origin https://github.com/apsy3677/applied-ai.git
+git push -u origin main</code></pre>
+      </div>
+
+      <div class="explain">
+        <p class="explain-title">Piece by piece</p>
+        <ul class="flags">
+          <li><code>init -b main</code><span>Start tracking this folder, with the first branch named <code>main</code>.</span></li>
+          <li><code>add .</code><span>Stage everything not ignored. Staging = "include in the next snapshot".</span></li>
+          <li><code>commit -m</code><span>Take the snapshot, with a message.</span></li>
+          <li><code>remote add</code><span>Give the GitHub URL the nickname <code>origin</code>.</span></li>
+          <li><code>push -u</code><span>Upload. <code>-u</code> remembers the destination so later you can just type <code>git push</code>.</span></li>
+        </ul>
+      </div>
+
+      <h3>When it asks for a password</h3>
+      <p>GitHub stopped accepting account passwords over HTTPS. You need a <strong>Personal Access Token</strong> instead:</p>
+      <ol>
+        <li>github.com &rarr; click your avatar &rarr; <strong>Settings</strong></li>
+        <li>Scroll to the bottom of the left sidebar &rarr; <strong>Developer settings</strong></li>
+        <li><strong>Personal access tokens</strong> &rarr; <strong>Tokens (classic)</strong> &rarr; <strong>Generate new token (classic)</strong></li>
+        <li>Name it "wsl", set an expiry, tick the <strong><code>repo</code></strong> scope</li>
+        <li>Generate, and copy the token &mdash; it is shown exactly once</li>
+        <li>Back in the terminal: username is <code>apsy3677</code>, password is <strong>the token</strong></li>
+      </ol>
+      <p>To stop being asked every time: <code>git config --global credential.helper store</code> (saves it in a plain file in your home folder &mdash; acceptable on your own machine, not on a shared one).</p>
+
+      <label class="check"><input type="checkbox" data-k="s11"><span>Code is on github.com/apsy3677/applied-ai and <code>.env</code> is not</span></label>
+    </div>
+  </section>
+
+  <!-- ============ STEP 12 ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">12</span>
+      <h2>Now bring in Claude Code</h2>
+    </div>
+    <p class="time">20 min</p>
+    <div class="step-body">
+      <p><strong>What it is:</strong> Claude, running in your terminal, with the ability to read and edit the files in whatever folder you started it from. Not a chat window you copy-paste into &mdash; it opens your files itself.</p>
+      <p>It needs a Claude Pro or Max subscription. The free plan doesn't include it.</p>
+
+      <div class="code">
+        <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai
+claude</code></pre>
+      </div>
+
+      <p>First run opens a browser to log in. After that you get a prompt where you type in plain English. <code>/help</code> lists commands, <code>/exit</code> quits.</p>
+
+      <div class="warn">
+        <p class="warn-title">The trap, and how to disarm it</p>
+        <p>Claude Code will happily write all three prototypes for you in about forty seconds. You will have a green checkmark and have learned nothing, and Session 3 will land on sand. Tell it to teach instead. Create a file it reads automatically on every run:</p>
+        <div class="code" style="margin-top:10px">
+          <div class="code-label"><span>terminal</span><button class="copy">Copy</button></div>
+<pre><code>cd ~/code/applied-ai
+nano CLAUDE.md</code></pre>
+        </div>
+        <div class="code" style="margin-top:8px">
+          <div class="code-label"><span>CLAUDE.md</span><button class="copy">Copy</button></div>
+<pre><code># How to work with me in this repo
+
+This is coursework for Arpit Bhayani's Applied AI Masterclass.
+The goal is me learning, not shipping.
+
+- Do NOT write prototypes for me unless I explicitly ask.
+  Default: review what I wrote, tell me what is wrong and why,
+  ask me what a line does.
+- No LangChain, LlamaIndex or CrewAI. Official provider SDKs only —
+  the course is about the primitives, and a framework hides them.
+- I am 11 years into backend/systems engineering. Skip Python basics,
+  HTTP and distributed-systems fundamentals. Do go deep on
+  LLM-specific mechanics — those are new to me.
+- Secrets live in .env only. Never inline a key.</code></pre>
+        </div>
+      </div>
+
+      <h3>Things worth asking it, in this repo</h3>
+      <ul>
+        <li>"Read summarize.py and explain what each line does. Don't change anything."</li>
+        <li>"I expected X but got Y when I ran weather.py. Here's the error. What's my misunderstanding?"</li>
+        <li>"Review itinerary.py the way a staff engineer would. Don't rewrite it, list what you'd push back on."</li>
+        <li>"What's the difference between constraining output with a schema and just asking for JSON in the prompt?"</li>
+      </ul>
+
+      <label class="check"><input type="checkbox" data-k="s12"><span>Claude Code runs in the project folder and CLAUDE.md exists</span></label>
+    </div>
+  </section>
+
+  <!-- ============ TROUBLESHOOTING ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">&#8253;</span>
+      <h2>When something breaks</h2>
+    </div>
+    <div class="step-body">
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>What you see</th><th>What it means</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>ModuleNotFoundError: No module named 'google'</code></td>
+              <td>The virtual environment isn't active in this window</td>
+              <td><code>cd ~/code/applied-ai &amp;&amp; source .venv/bin/activate</code></td>
+            </tr>
+            <tr>
+              <td><code>KeyError: 'GEMINI_API_KEY'</code></td>
+              <td>No <code>.env</code> found, or the name is misspelled inside it</td>
+              <td>Run from inside the project folder; check with <code>cat ~/code/applied-ai/.env</code></td>
+            </tr>
+            <tr>
+              <td><code>command not found</code></td>
+              <td>The program exists but isn't on your <code>PATH</code></td>
+              <td>See the PATH fix in Step 2</td>
+            </tr>
+            <tr>
+              <td><code>429</code> / <code>RESOURCE_EXHAUSTED</code></td>
+              <td>You hit the free-tier rate limit</td>
+              <td>Wait 60 seconds. If it's the daily cap, wait till tomorrow or switch to a <code>flash-lite</code> model</td>
+            </tr>
+            <tr>
+              <td><code>Permission denied (publickey)</code> on push</td>
+              <td>Git is trying SSH, but you set up HTTPS</td>
+              <td><code>git remote set-url origin https://github.com/apsy3677/applied-ai.git</code></td>
+            </tr>
+            <tr>
+              <td>Model not found</td>
+              <td>Model IDs rotate</td>
+              <td>Run the model-listing snippet in Step 8, pick one with <code>flash</code> in the name</td>
+            </tr>
+            <tr>
+              <td>Everything feels slow</td>
+              <td>Project is probably under <code>/mnt/c/</code></td>
+              <td>Move it: <code>mv /mnt/c/path/applied-ai ~/code/</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NEXT ============ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">&rarr;</span>
+      <h2>What to do before Saturday</h2>
+    </div>
+    <div class="step-body">
+      <p>Steps 1&ndash;12 get you level with Sessions 1 and 2. Session 3 is agents, and it assumes tool calling is second nature &mdash; which is why Step 10 matters more than the other two put together. If you only have time for one thing, make it that one, plus the experiments under it.</p>
+      <p>Session 3 also needs Temporal running locally, which means Docker Desktop with WSL integration switched on. Docker's first pull is several gigabytes. Find that out on Thursday evening, not at 9am Saturday.</p>
+      <p>One correction to the bootstrap script I sent earlier: its <code>llm.py</code> uses the older <code>client.models.generate_content(...)</code> call. The SDK has moved to <code>client.interactions.create(...)</code>, which is what this page uses throughout. Ignore that script for now &mdash; the folders you made in Step 5 are all you need.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Course: <a href="https://arpitbhayani.me/applied-ai" target="_blank" rel="noopener">Applied AI Masterclass</a> &middot; API keys: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> &middot; SDK docs: <a href="https://ai.google.dev/gemini-api/docs/quickstart" target="_blank" rel="noopener">Gemini API quickstart</a> &middot; <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noopener">Claude Code setup</a></p>
+    <p>Model IDs and free-tier limits change. If a code block stops working, the model name is the first thing to check.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var KEY = 'applied-ai-runbook-v1';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.check input'));
+  var fill = document.getElementById('fill');
+  var done = document.getElementById('pdone');
+  var total = document.getElementById('ptotal');
+
+  total.textContent = boxes.length;
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) || {};
+    } catch (e) { return {}; }
+  }
+
+  function save(state) {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function render() {
+    var n = boxes.filter(function (b) { return b.checked; }).length;
+    done.textContent = n;
+    fill.style.width = (boxes.length ? (n / boxes.length) * 100 : 0) + '%';
+  }
+
+  var state = load();
+  boxes.forEach(function (b) {
+    b.id = 'chk-' + b.dataset.k;
+    if (state[b.dataset.k]) b.checked = true;
+    b.addEventListener('change', function () {
+      var s = load();
+      s[b.dataset.k] = b.checked;
+      save(s);
+      render();
+    });
+  });
+  render();
+
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var block = btn.closest('.code');
+      var code = block ? block.querySelector('pre') : null;
+      if (!code) return;
+      var text = code.innerText;
+      var ok = function () {
+        btn.textContent = 'Copied';
+        btn.classList.add('done');
+        setTimeout(function () {
+          btn.textContent = 'Copy';
+          btn.classList.remove('done');
+        }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(ok, function () {});
+      } else {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          ok();
+        } catch (e) {}
+      }
+    });
+  });
+})();
+</script>
+
+</body></html>
