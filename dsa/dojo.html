@@ -279,6 +279,10 @@ function stepState(s) {
   return tries.some((a) => a.result === 'clean') && !(r && r.history.at(-1)?.v === 'fail') ? 'done' : 'active';
 }
 const stepLabel = (s) => s.problem || S.byId[s.card]?.title || s.card;
+// other tracks that hold the same card (card step) or the same timed problem: practice is shared, never repeated
+const sameStep = (a, b) => a.problem ? !!b.problem && problemId(a.problem) === problemId(b.problem) : !b.problem && a.card === b.card;
+const alsoIn = (s, self) => S.tracks.filter((o) => o !== self && o.steps.some((x) => sameStep(s, x))).map((o) => o.title);
+const tracksOfCard = (id) => S.tracks.filter((t) => t.steps.some((x) => !x.problem && x.card === id)).map((t) => t.title);
 function trackStats(t) {
   const st = t.steps.map(stepState), done = st.filter((x) => x === 'done').length;
   const days = t.target ? Math.round((new Date(t.target + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 864e5) : null;
@@ -451,9 +455,10 @@ const VIEWS = {
           <p class="small" style="margin:0 0 6px">${esc(t.note)}</p>
           <div class="list">${t.steps.map((s, i) => { const [cls, lab] = STEP[ts.st[i]] || STEP.new; const c = S.byId[s.card];
             const pid = s.problem ? findProblem(s.problem) : null;
+            const also = alsoIn(s, t), shared = also.length ? ` · <b>Shared</b> with ${esc(also.join(', '))}: one tick counts for both` : '';
             return s.problem
-              ? `<button class="item" data-act="timerFor" data-problem="${esc(s.problem)}" data-cid="${esc(s.card)}" data-mode="${esc(s.mode)}"><span class="t"><span class="kind">${i + 1} · Timed</span>${esc(s.problem)}</span><span class="chip ${cls}">${lab}</span><span class="d">${esc(s.why)}${pid ? ` · ${esc(S.problems[pid].s)}` : ''}</span></button>`
-              : `<button class="item" data-card="${esc(s.card)}"><span class="t"><span class="kind">${i + 1} · Card</span>${esc(c?.title || s.card)}</span><span class="chip ${cls}">${lab}</span><span class="d">${esc(s.why)}${c ? ` · ${cardStats(c).mastered}/${cardStats(c).n} questions mastered` : ''}</span></button>`; }).join('')}</div>
+              ? `<button class="item" data-act="timerFor" data-problem="${esc(s.problem)}" data-cid="${esc(s.card)}" data-mode="${esc(s.mode)}"><span class="t"><span class="kind">${i + 1} · Timed</span>${esc(s.problem)}</span><span class="chip ${cls}">${lab}</span><span class="d">${esc(s.why)}${pid ? ` · ${esc(S.problems[pid].s)}` : ''}${shared}</span></button>`
+              : `<button class="item" data-card="${esc(s.card)}"><span class="t"><span class="kind">${i + 1} · Card</span>${esc(c?.title || s.card)}</span><span class="chip ${cls}">${lab}</span><span class="d">${esc(s.why)}${c ? ` · ${cardStats(c).mastered}/${cardStats(c).n} questions mastered` : ''}${shared}</span></button>`; }).join('')}</div>
           ${t.finish ? `<p class="small" style="margin:10px 0 0"><b>Finish:</b> ${esc(t.finish)}</p>` : ''}
         </div>`; }).join('')}`;
   },
@@ -646,6 +651,7 @@ function openCard(id) {
     <div class="panel-head"><div class="wrap"><button class="btn ghost" data-act="closeCard" aria-label="Back">←</button><h2>${esc(c.title)}</h2>${chip(c.status)}</div></div>
     <div class="wrap">
       <p class="muted small" style="margin-top:12px">${rich(c.evidence || '')}</p>
+      ${tracksOfCard(c.id).length ? `<p class="small" style="margin:4px 0 0">In tracks: <b>${esc(tracksOfCard(c.id).join(' · '))}</b> (this card is the one place to practise it)</p>` : ''}
       <div class="row" style="margin-top:6px"><button class="btn primary" data-act="quizCard" data-id="${c.id}">Practice this card (${s.n})</button>${S.sample ? `<button class="btn" data-act="askOpen" data-id="${c.id}">Ask the coach</button>` : ''}</div>
       <div id="ask-${c.id}"></div>
       ${cardProblemHtml(c)}
