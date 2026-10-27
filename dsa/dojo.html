@@ -160,7 +160,7 @@ a.pref { color: inherit; text-decoration: underline dotted var(--accent); text-u
 
 <script>
 // ---------- constants ----------
-const TABS = [['home','Home'],['router','Router'],['cards','Cards'],['quiz','Quiz'],['timer','Timer'],['progress','Progress'],['about','About']];
+const TABS = [['home','Home'],['tracks','Tracks'],['router','Router'],['cards','Cards'],['quiz','Quiz'],['timer','Timer'],['progress','Progress'],['about','About']];
 const STATUS_ORDER = { meta: 0, decaying: 1, weak: 2, gap: 3, good: 4, strong: 5 };
 const STATUS_LABEL = { meta: 'method', decaying: 'decaying', weak: 'weak', gap: 'gap', good: 'good', strong: 'strong' };
 const BOX_DAYS = [0, 1, 3, 7, 21, 45];   // box n -> next review after BOX_DAYS[n] days
@@ -203,7 +203,7 @@ function union(...lists) {
 const TYPE_LABEL = { recognize: 'think aloud', trap: 'your old bug', followup: 'follow-up', recall: 'write it', predict: 'trace it' };
 
 // ---------- state ----------
-const S = { cards: [], byId: {}, router: null, version: '', reviews: {}, attempts: [], plan: null,
+const S = { cards: [], byId: {}, tracks: [], router: null, version: '', reviews: {}, attempts: [], plan: null,
   tab: 'home', store: null, pending: [], public: false, sample: null, quiz: null, drill: null, chat: {}, filter: 'all' };
 
 // ---------- helpers ----------
@@ -268,6 +268,21 @@ function cardStats(c) {
     if (!r) continue; seen++; if (r.box >= MASTER_BOX) mastered++; if (r.due <= t) due++; }
   const n = c.quiz.length;
   return { n, seen, mastered, due, state: mastered === n ? 'done' : seen ? 'active' : 'new' };
+}
+// a track step's state, from the same attempt log: card → its quiz stats; problem → its Timer attempts
+function stepState(s) {
+  if (!s.problem) { const c = S.byId[s.card]; return c ? cardStats(c).state : 'new'; }
+  const pid = problemId(s.problem), r = S.reviews[pid];
+  const tries = S.attempts.filter((a) => a.kind === 'timer' && problemId(a.problem) === pid);
+  if (!tries.length) return 'new';
+  if (r && r.due <= today()) return 'due';
+  return tries.some((a) => a.result === 'clean') && !(r && r.history.at(-1)?.v === 'fail') ? 'done' : 'active';
+}
+const stepLabel = (s) => s.problem || S.byId[s.card]?.title || s.card;
+function trackStats(t) {
+  const st = t.steps.map(stepState), done = st.filter((x) => x === 'done').length;
+  const days = t.target ? Math.round((new Date(t.target + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 864e5) : null;
+  return { st, done, n: t.steps.length, days, next: t.steps.findIndex((_, i) => st[i] !== 'done') };
 }
 function dueItems() {
   const t = today(), out = [];
@@ -376,6 +391,9 @@ const VIEWS = {
     const target = dailyTarget() * 7;
     const due = dueItems();
     const next = [];
+    // 0. an active track's next step comes first (an upcoming round overrides the plan)
+    for (const t of S.tracks) { const ts = trackStats(t); if (ts.next < 0 || (ts.days != null && ts.days < 0)) continue;
+      next.push(`<button class="item" data-tab="tracks"><span class="t"><span class="kind">Track</span>${esc(t.title)}</span><span class="chip s-weak">${ts.done}/${ts.n}</span><span class="d">Next: ${esc(stepLabel(t.steps[ts.next]))}${ts.days != null ? ` · ${ts.days} day${ts.days === 1 ? '' : 's'} left` : ''}</span></button>`); }
     // 1. due quiz reviews grouped by card
     const dueByCard = {};
     for (const r of due.filter((r) => r.kind === 'quiz')) (dueByCard[r.card] ||= []).push(r);
@@ -417,6 +435,27 @@ const VIEWS = {
           <li><b>Sync</b>: progress saves where you are (claude.ai or GitHub). "dojo sync" in Claude merges every device; details in About.</li>
         </ol></div></details>
       <p class="small muted" style="margin-top:18px">Cards ${esc(S.version)} · ${total} patterns · ${S.cards.reduce((n, c) => n + c.quiz.length, 0)} questions</p>`;
+  },
+
+  tracks() {
+    if (!S.tracks.length) return `<h2>Tracks</h2><p class="muted">No tracks yet. A track is a short, ordered list of cards and timed problems for one goal, with a date.</p>`;
+    const STEP = { done: ['s-strong', 'done'], active: ['s-gap', 'in progress'], due: ['s-decaying', 'due'], new: ['s-meta', 'to do'] };
+    return `
+      <h2>Tracks</h2>
+      <p class="muted small">A track points at existing cards and problems, so practice counts everywhere: a card you master here is mastered in Cards too, and anything already mastered shows as done.</p>
+      ${S.tracks.map((t) => { const ts = trackStats(t);
+        return `<div class="box" style="margin-top:14px">
+          <h3 style="margin:0 0 4px">${esc(t.title)}</h3>
+          <p class="small muted" style="margin:0 0 8px">${ts.days != null ? `<b>${ts.days >= 0 ? `${ts.days} day${ts.days === 1 ? '' : 's'} left` : 'date passed'}</b> (${esc(t.target)}) · ` : 'Date not set yet · '}${ts.done}/${ts.n} steps done</p>
+          <div class="bar" style="margin-bottom:10px"><i style="width:${Math.round(100 * ts.done / Math.max(1, ts.n))}%"></i></div>
+          <p class="small" style="margin:0 0 6px">${esc(t.note)}</p>
+          <div class="list">${t.steps.map((s, i) => { const [cls, lab] = STEP[ts.st[i]] || STEP.new; const c = S.byId[s.card];
+            const pid = s.problem ? findProblem(s.problem) : null;
+            return s.problem
+              ? `<button class="item" data-act="timerFor" data-problem="${esc(s.problem)}" data-cid="${esc(s.card)}" data-mode="${esc(s.mode)}"><span class="t"><span class="kind">${i + 1} · Timed</span>${esc(s.problem)}</span><span class="chip ${cls}">${lab}</span><span class="d">${esc(s.why)}${pid ? ` · ${esc(S.problems[pid].s)}` : ''}</span></button>`
+              : `<button class="item" data-card="${esc(s.card)}"><span class="t"><span class="kind">${i + 1} · Card</span>${esc(c?.title || s.card)}</span><span class="chip ${cls}">${lab}</span><span class="d">${esc(s.why)}${c ? ` · ${cardStats(c).mastered}/${cardStats(c).n} questions mastered` : ''}</span></button>`; }).join('')}</div>
+          ${t.finish ? `<p class="small" style="margin:10px 0 0"><b>Finish:</b> ${esc(t.finish)}</p>` : ''}
+        </div>`; }).join('')}`;
   },
 
   router() {
@@ -537,7 +576,8 @@ const VIEWS = {
     const rows = [
       ['Home', 'Your start page. Progress strip (patterns mastered, reviews due, minutes this week vs target, streak), this phase of the plan, and <b>Do next</b>: due reviews first, then cold re-solves, this week\'s focus cards, timed problems from the plan, and new cards. Mastered patterns sink into <b>Done</b>.'],
       ['Router', 'Train the first 5 minutes: constraint → complexity table, signal → pattern table, and a drill that shows a problem and asks you to name the pattern. Use it in spare minutes on the phone.'],
-      ['Cards', 'All 37 patterns, filtered by status (decaying, weak, gap, good, strong, method). Unfinished and due cards are listed first; mastered ones go to the bottom. A card holds, in order: the problem it teaches (statement, example, constraints, brute force), signals, invariant, the first 5 minutes, mechanism, C++ template and a step-through on that same example, your own past traps, how it is asked, the follow-up ladder L1 → L3 (each level restates the whole problem) and practice problems with a short statement each. Any problem name with a dotted underline opens its statement and a link to the original.'],
+      ['Tracks', 'A short, ordered list of existing cards and timed problems for one goal (for example an upcoming round), with its date. Steps point at the same cards, so nothing is practised twice: progress anywhere counts here, and a card already mastered shows as done. The next step also appears first on Home.'],
+      ['Cards', `All ${S.cards.length} cards (DSA patterns plus systems & C++), filtered by status (decaying, weak, gap, good, strong, method). Unfinished and due cards are listed first; mastered ones go to the bottom. A card holds, in order: the problem it teaches (statement, example, constraints, brute force), signals, invariant, the first 5 minutes, mechanism, C++ template and a step-through on that same example, your own past traps, how it is asked, the follow-up ladder L1 → L3 (each level restates the whole problem) and practice problems with a short statement each. Any problem name with a dotted underline opens its statement and a link to the original.`],
       ['Quiz', 'Due reviews, new questions from the next card, or a mixed set. Answer by voice (keyboard mic) or in code. On claude.ai Claude grades you and you retry once; elsewhere you compare with the reference and mark yourself.'],
       ['Timer', 'For a real problem: press Start, then <b>Approach said</b> (T1), <b>Code done</b> (T2) and <b>Dry-run done</b> (T3). Save the result and bugs. A miss comes back as a cold re-solve in 3 days.'],
       ['Progress', 'Timed-problem averages (T1/T2/T3), cold re-solve rate, quiz pass rate, minutes per day for 14 days, the plan phases, and a mastery bar for every pattern.'],
@@ -618,7 +658,7 @@ function openCard(id) {
       ${c.trace ? `<div class="box stepper" id="stepper"><h4>Step through · ${esc(c.trace.title)}</h4><pre class="ascii" id="st-s"></pre><div class="note" id="st-n"></div>
         <div class="ctl"><button class="btn" data-act="step" data-d="-1">← Back</button><span class="muted small" id="st-i"></span><button class="btn primary" data-act="step" data-d="1">Next →</button></div></div>` : ''}
       ${c.traps?.length ? `<h3>Your traps</h3>${c.traps.map((t) => `<div class="trap"><b>${rich(t.t)}</b><div class="small" style="margin-top:4px"><code>${rich(t.input)}</code></div><div class="small" style="margin-top:4px">Fix: ${rich(t.fix)}</div></div>`).join('')}` : ''}
-      <h3>${S.public ? 'How it is asked' : 'How Big Tech asks it'} <span class="muted small">(${esc(c.google.confidence)} reported)</span></h3>
+      <h3>${esc(c.google.label || (S.public ? 'How it is asked' : 'How Big Tech asks it'))} <span class="muted small">(${esc(c.google.confidence)} reported)</span></h3>
       <div class="box"><p style="margin:0 0 8px">${rich(c.google.framing)}</p>
         ${c.google.disguises?.length ? `<h4>Disguises</h4><ul>${c.google.disguises.map((t) => `<li>${rich(t)}</li>`).join('')}</ul>` : ''}
         <h4 style="margin-top:10px">Depth they probe</h4><ul>${c.google.depth.map((t) => `<li>${rich(t)}</li>`).join('')}</ul>
@@ -840,6 +880,7 @@ async function boot() {
     S.cards = data.cards.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]); S.router = data.router; S.version = data.version; S.public = data.edition === 'public';
     if (S.public) $('#sub').textContent = 'Data structures & algorithms practice';
     for (const c of S.cards) S.byId[c.id] = c;
+    S.tracks = (data.tracks || []).map((t) => ({ ...t, steps: t.steps.filter((s) => S.byId[s.card]) }));
     indexProblems(data.problems);
   } catch (e) { $('#main').innerHTML = `<p style="margin-top:24px">The cards did not load (${esc(e.message)}). Reload the page.</p>`; return; }
   const h = location.hash.slice(1);
