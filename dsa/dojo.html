@@ -367,9 +367,25 @@ function go(tab) { S.tab = tab; history.replaceState(null, '', '#' + tab); lsSet
 function renderTabs() {
   $('#tabs').innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${l}${k === 'quiz' && dueItems().length ? ` <span class="muted">${dueItems().length}</span>` : ''}</button>`).join('');
 }
+// Dictation: the browser's speech-to-text (Chrome, Edge, Safari). Some embeds block the mic; then the keyboard mic still works.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+function micBtn(on) { const b = $('#mic'); if (b) { b.textContent = on ? '■ Stop' : '🎤 Speak'; b.setAttribute('aria-pressed', on); } }
+function stopDictation() { if (!rec) return; rec.onend = null; rec.stop(); rec = null; micBtn(false); }
+function startDictation() {
+  const base = $('#ans').value.trim();
+  rec = new SR(); rec.lang = 'en-IN'; rec.continuous = true; rec.interimResults = true;
+  rec.onresult = (e) => {  // results hold the whole session so far: rebuild the text from them each time
+    const a = $('#ans'); if (!a || a.disabled) return stopDictation();
+    a.value = (base ? base + ' ' : '') + Array.from(e.results, (r) => r[0].transcript).join('');
+  };
+  rec.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { S.micBlocked = true; note('The mic is blocked in this view. Use the mic key on your keyboard instead.'); } };
+  rec.onend = () => { rec = null; micBtn(false); if (S.micBlocked) render(); };
+  try { rec.start(); micBtn(true); } catch { rec = null; }
+}
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-tab]'); if (t) { go(t.dataset.tab); return; }
-  const a = e.target.closest('[data-act]'); if (a) { ACT[a.dataset.act]?.(a.dataset, a, e); return; }
+  const t = e.target.closest('[data-tab]'); if (t) { stopDictation(); go(t.dataset.tab); return; }
+  const a = e.target.closest('[data-act]'); if (a) { if (a.dataset.act !== 'dictate') stopDictation(); ACT[a.dataset.act]?.(a.dataset, a, e); return; }
   const c = e.target.closest('[data-card]'); if (c) { openCard(c.dataset.card); return; }
   if (!$('#pop').hidden && !e.target.closest('#pop')) $('#pop').hidden = true;
 });
@@ -496,7 +512,7 @@ const VIEWS = {
     const weakest = S.cards.filter((c) => c.status !== 'strong').length;
     return `
       <h2>Quiz</h2>
-      <p class="muted small">Answer by voice on the phone: tap the mic on your keyboard and think aloud. Claude grades the approach, invariant, complexity and edge cases, not the syntax.</p>
+      <p class="muted small">Answer by voice: tap 🎤 Speak (laptop or phone browser) or the mic on your keyboard, and think aloud. Claude grades the approach, invariant, complexity and edge cases, not the syntax.</p>
       <div class="stack" style="margin-top:12px">
         <button class="btn primary" data-act="quizDue" ${due.length ? '' : 'disabled'}>Due reviews (${due.length})</button>
         <button class="btn" data-act="quizNew">New questions from the next card (${esc(nextNewCard()?.title || 'none left')})</button>
@@ -716,9 +732,10 @@ function quizView() {
     <p class="q">${rich(q.q)}</p>
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
       <div class="seg" role="group" aria-label="Answer mode"><button data-act="mode" data-m="voice" aria-pressed="${!code}">🎙 Think aloud</button><button data-act="mode" data-m="code" aria-pressed="${code}">⌨ Code</button></div>
+      ${SR && !S.micBlocked && !z.done ? `<button class="btn" id="mic" data-act="dictate" aria-pressed="${!!rec}">${rec ? '■ Stop' : '🎤 Speak'}</button>` : ''}
       <span class="muted small">${z.attempt ? 'Second try' : 'First try'}</span>
     </div>
-    <textarea id="ans" class="${code ? 'codey' : ''}" placeholder="${code ? 'Write C++ or pseudocode…' : 'Tap the keyboard mic and say what you would do: pattern, invariant, complexity, edge cases…'}" ${z.done ? 'disabled' : ''}>${esc(z.answers[z.attempt] ?? z.answers[z.attempt - 1] ?? '')}</textarea>
+    <textarea id="ans" class="${code ? 'codey' : ''}" placeholder="${code ? 'Write C++ or pseudocode…' : (SR && !S.micBlocked ? 'Tap 🎤 Speak (or the keyboard mic)' : 'Tap the keyboard mic') + ' and say what you would do: pattern, invariant, complexity, edge cases…'}" ${z.done ? 'disabled' : ''}>${esc(z.answers[z.attempt] ?? z.answers[z.attempt - 1] ?? '')}</textarea>
     ${fbHtml}
     ${z.done || z.revealed ? `<div class="box"><h4>Reference answer</h4><p style="margin:0">${rich(q.key)}</p></div>` : ''}
     <div class="row" style="margin-top:12px">
@@ -832,6 +849,7 @@ const ACT = {
     for (const c of S.cards) if (['weak', 'decaying', 'gap'].includes(c.status)) for (const q of c.quiz) pool.push({ card: c.id, q: q.id });
     startQuiz(pool.sort(() => Math.random() - 0.5).slice(0, 6), 'Mixed set'); },
   quizEnd: () => { const r = S.quiz?.results || []; S.quiz = null; render(); if (r.length) note(`Session done: ${r.filter((v) => v === 'pass').length} pass, ${r.filter((v) => v === 'partial').length} partial, ${r.filter((v) => v === 'fail').length} to review tomorrow.`); },
+  dictate: () => (rec ? stopDictation() : startDictation()),
   mode: (d) => { const a = $('#ans'); if (a && S.quiz) S.quiz.answers[S.quiz.attempt] = a.value; S.quiz.mode = d.m; lsSet('dojo-mode', d.m); render(); },
   qCheck,
   qGiveUp: () => { const a = $('#ans'); if (a) S.quiz.answers[S.quiz.attempt] = a.value; finishQ('fail'); },
