@@ -380,7 +380,7 @@ function startDictation() {
     a.value = (base ? base + ' ' : '') + Array.from(e.results, (r) => r[0].transcript).join('');
   };
   rec.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { S.micBlocked = true; note('The mic is blocked in this view. Use the mic key on your keyboard instead.'); } };
-  rec.onend = () => { rec = null; micBtn(false); if (S.micBlocked) render(); };
+  rec.onend = () => { rec = null; micBtn(false); };
   try { rec.start(); micBtn(true); } catch { rec = null; }
 }
 document.addEventListener('click', (e) => {
@@ -732,7 +732,7 @@ function quizView() {
     <p class="q">${rich(q.q)}</p>
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
       <div class="seg" role="group" aria-label="Answer mode"><button data-act="mode" data-m="voice" aria-pressed="${!code}">🎙 Think aloud</button><button data-act="mode" data-m="code" aria-pressed="${code}">⌨ Code</button></div>
-      ${SR && !S.micBlocked && !z.done ? `<button class="btn" id="mic" data-act="dictate" aria-pressed="${!!rec}">${rec ? '■ Stop' : '🎤 Speak'}</button>` : ''}
+      ${!z.done ? `<button class="btn" id="mic" data-act="dictate" aria-pressed="${!!rec}">${rec ? '■ Stop' : '🎤 Speak'}</button>` : ''}
       <span class="muted small">${z.attempt ? 'Second try' : 'First try'}</span>
     </div>
     <textarea id="ans" class="${code ? 'codey' : ''}" placeholder="${code ? 'Write C++ or pseudocode…' : (SR && !S.micBlocked ? 'Tap 🎤 Speak (or the keyboard mic)' : 'Tap the keyboard mic') + ' and say what you would do: pattern, invariant, complexity, edge cases…'}" ${z.done ? 'disabled' : ''}>${esc(z.answers[z.attempt] ?? z.answers[z.attempt - 1] ?? '')}</textarea>
@@ -849,7 +849,9 @@ const ACT = {
     for (const c of S.cards) if (['weak', 'decaying', 'gap'].includes(c.status)) for (const q of c.quiz) pool.push({ card: c.id, q: q.id });
     startQuiz(pool.sort(() => Math.random() - 0.5).slice(0, 6), 'Mixed set'); },
   quizEnd: () => { const r = S.quiz?.results || []; S.quiz = null; render(); if (r.length) note(`Session done: ${r.filter((v) => v === 'pass').length} pass, ${r.filter((v) => v === 'partial').length} partial, ${r.filter((v) => v === 'fail').length} to review tomorrow.`); },
-  dictate: () => (rec ? stopDictation() : startDictation()),
+  dictate: () => (!SR ? note('This browser has no speech-to-text. Open the page in Chrome, Edge or Safari, or use the mic key on your keyboard.')
+    : S.micBlocked ? note('The mic is blocked in this view. Allow it in the browser (lock icon → Microphone) and reload, or use the keyboard mic.')
+    : rec ? stopDictation() : startDictation()),
   mode: (d) => { const a = $('#ans'); if (a && S.quiz) S.quiz.answers[S.quiz.attempt] = a.value; S.quiz.mode = d.m; lsSet('dojo-mode', d.m); render(); },
   qCheck,
   qGiveUp: () => { const a = $('#ans'); if (a) S.quiz.answers[S.quiz.attempt] = a.value; finishQ('fail'); },
